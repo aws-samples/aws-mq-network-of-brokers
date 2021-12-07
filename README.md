@@ -1,4 +1,4 @@
-# Amazon MQ NoB
+# Amazon MQ Network of Brokers
 
 ## Getting started
 
