@@ -1,0 +1,650 @@
+﻿{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Parameters": {
+    "AZ1": {
+      "Description": "Amazon availability zone1 for Subnet1",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "AZ2": {
+      "Description": "Amazon availability zone2 for Subnet2",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "VPCCIDR": {
+      "Description": "CIDR for VPC",
+      "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$",
+      "Default": "10.0.0.0/24",
+      "Type": "String"
+    },
+    "Subnet1CIDR": {
+      "Description": "Subnet1 CIDR",
+      "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$",
+      "Default": "10.0.0.0/28",
+      "Type": "String"
+    },
+    "Subnet2CIDR": {
+      "Description": "Subnet2 CIDR",
+      "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$",
+      "Default": "10.0.0.16/28",
+      "Type": "String"
+    },
+
+    "AmazonMqPassword": {
+      "NoEcho": "true",
+      "Description": "MQ User password",
+      "Type": "String",
+      "MinLength": "12",
+      "AllowedPattern": "^[a-zA-Z0-9]*$",
+      "Default": "Password123456"
+
+    },
+
+    "AmazonMqUsername": {
+
+      "Description": "MQ User name",
+      "Type": "String",
+      "MinLength": "6",
+      "MaxLength": "15",
+      "AllowedPattern": "^[a-zA-Z0-9]*$",
+      "Default": "MQUserName"
+    },
+    "LambdaCodeS3Bucket": {
+      "Description": "S3 bucket name in this region where lambda code is kept",
+      "AllowedPattern": "^[0-9A-Za-z\\.\\-_]*(?<!\\.)$",
+      "MinLength": "3",
+      "MaxLength": "63",
+      "Type": "String"
+
+    },
+    "LambdaCodeS3Key": {
+      "Description": "File name for lambda code - producer (mqProducer.jar) or consumer (mqConsumer.zip)",
+      "MinLength": "1",
+      "MaxLength": "1024",
+      "Type": "String",
+      "AllowedValues": [ "mqProducer.jar", "mqConsumer.zip" ]
+
+
+    },
+
+    "LambdaName": {
+      "Description": "lambda name - producer or consumer",
+      "Type": "String",
+      "AllowedValues": [ "mqProducer", "mqConsumer" ]
+    },
+
+    "LambdaCodeRuntime": {
+      "Description": "lambda runtime for  - producer (java) or consumer (.net)",
+      "AllowedValues": [ "java11", "dotnetcore3.1" ],
+      "Type": "String"
+    },
+
+    "LambdaExecutionRoleArn": {
+      "Description": "IAM Role arn for lambda execution",
+      "Type": "String"
+
+    },
+
+    "LambdaHandler": {
+      "Description": "Lambda handler - producer (handleRequest) or consumer (consumerHandler)",
+      "Type": "String",
+      "MaxLength": "64",
+      "AllowedValues": [ "com.example.apacheMQLabs.mqProducer::handleRequest", "MQLambda::MQLambda.MQClient::consumerHandler" ]
+    }
+
+
+
+  },
+
+
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": { "default": "Network Configuration" },
+          "Parameters": [ "VPCCIDR", "Subnet1CIDR", "AZ1", "Subnet2CIDR", "AZ2" ]
+        },
+        {
+          "Label": { "default": "Amazon MQ Configuration" },
+          "Parameters": [ "AmazonMqUsername", "AmazonMqPassword" ]
+        },
+        {
+          "Label": { "default": "Lambda Configuration" },
+          "Parameters": [ "LambdaName", "LambdaCodeS3Bucket", "LambdaCodeS3Key", "LambdaCodeRuntime", "LambdaRoleName", "LambdaHandler", "LambdaExecutionRoleArn" ]
+        }
+      ]
+    }
+  },
+
+  "Resources": {
+
+    "MQSampleVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": { "Ref": "VPCCIDR" },
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "MQSampleVPC"
+          }
+        ]
+      }
+    },
+
+    "MQSampleSubnet1": {
+
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": { "Ref": "AZ1" },
+        "CidrBlock": { "Ref": "Subnet1CIDR" },
+        "MapPublicIpOnLaunch": false,
+        "VpcId": { "Ref": "MQSampleVPC" }
+      }
+    },
+
+
+    "MQSampleSubnet2": {
+
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": { "Ref": "AZ2" },
+        "CidrBlock": { "Ref": "Subnet2CIDR" },
+        "MapPublicIpOnLaunch": false,
+        "VpcId": { "Ref": "MQSampleVPC" }
+      }
+    },
+    "SecGrp1": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": { "Ref": "MQSampleVPC" },
+        "GroupDescription": "allow connections from specified CIDR ranges",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8162",
+            "ToPort": "8162",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "61617",
+            "ToPort": "61617",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          }
+        ]
+      }
+    },
+
+    "MQConfig1": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "Properties": {
+        "AuthenticationStrategy": "SIMPLE",
+        "Data": {
+          "Fn::Base64": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n <transportConnectors><transportConnector name=\"openwire\" updateClusterClients=\"true\" rebalanceClusterClients=\"true\" updateClusterClientsOnRemove=\"true\"/></transportConnectors> \n<destinationPolicy>\n    <policyMap>\n      <policyEntries>\n        <policyEntry topic=\">\">\n          <pendingMessageLimitStrategy>\n            <constantPendingMessageLimitStrategy limit=\"3000\"/>\n          </pendingMessageLimitStrategy>\n        </policyEntry>\n      </policyEntries>\n    </policyMap>\n  </destinationPolicy>\n  <plugins>\n  </plugins>\n</broker>\n"
+        },
+        "Description": "mq configuration description",
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "Name": "MQConfig1"
+      }
+    },
+
+
+
+
+    "Broker1": {
+      "Type": "AWS::AmazonMQ::Broker",
+      "Properties": {
+        "AuthenticationStrategy": "Simple",
+        "AutoMinorVersionUpgrade": "true",
+        "BrokerName": "Broker1",
+        "Configuration": {
+          "Id": { "Ref": "MQConfig1" },
+          "Revision": { "Fn::GetAtt": [ "MQConfig1", "Revision" ] }
+        },
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "Logs": {
+          "General": true
+        },
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "HostInstanceType": "mq.t2.micro",
+
+        "PubliclyAccessible": "false",
+
+
+        "SubnetIds": [ { "Ref": "MQSampleSubnet1" } ],
+        "SecurityGroups": [ { "Ref": "SecGrp1" } ],
+        "Users": [
+          {
+            "ConsoleAccess": "true",
+            "Password": { "Ref": "AmazonMqPassword" },
+            "Username": { "Ref": "AmazonMqUsername" }
+          }
+        ]
+      }
+    },
+    "Broker2": {
+      "Type": "AWS::AmazonMQ::Broker",
+      "Properties": {
+        "AuthenticationStrategy": "Simple",
+        "AutoMinorVersionUpgrade": "true",
+        "BrokerName": "Broker2",
+        "Configuration": {
+          "Id": { "Ref": "MQConfig1" },
+          "Revision": { "Fn::GetAtt": [ "MQConfig1", "Revision" ] }
+        },
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "Logs": {
+          "General": true
+        },
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "HostInstanceType": "mq.t2.micro",
+
+        "PubliclyAccessible": "false",
+
+
+        "SubnetIds": [ { "Ref": "MQSampleSubnet1" } ],
+        "SecurityGroups": [ { "Ref": "SecGrp1" } ],
+        "Users": [
+          {
+            "ConsoleAccess": "true",
+            "Password": { "Ref": "AmazonMqPassword" },
+            "Username": { "Ref": "AmazonMqUsername" }
+          }
+        ]
+      }
+    },
+    "Broker3": {
+      "Type": "AWS::AmazonMQ::Broker",
+      "Properties": {
+        "AuthenticationStrategy": "Simple",
+        "AutoMinorVersionUpgrade": "true",
+        "BrokerName": "Broker3",
+        "Configuration": {
+          "Id": { "Ref": "MQConfig1" },
+          "Revision": { "Fn::GetAtt": [ "MQConfig1", "Revision" ] }
+        },
+        "DeploymentMode": "SINGLE_INSTANCE",
+        "Logs": {
+          "General": true
+        },
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "HostInstanceType": "mq.t2.micro",
+
+        "PubliclyAccessible": "false",
+
+
+        "SubnetIds": [ { "Ref": "MQSampleSubnet2" } ],
+        "SecurityGroups": [ { "Ref": "SecGrp1" } ],
+        "Users": [
+          {
+            "ConsoleAccess": "true",
+            "Password": { "Ref": "AmazonMqPassword" },
+            "Username": { "Ref": "AmazonMqUsername" }
+          }
+        ]
+      }
+    },
+
+    "MQConfig2": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "DependsOn": [ "Broker1", "Broker2", "Broker3" ],
+      "Properties": {
+        "AuthenticationStrategy": "SIMPLE",
+        "Data": {
+          "Fn::Base64": {
+            "Fn::Sub": [
+              "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n <transportConnectors><transportConnector name=\"openwire\" updateClusterClients=\"true\" rebalanceClusterClients=\"true\" updateClusterClientsOnRemove=\"true\"/></transportConnectors>    \n<networkConnectors><networkConnector name=\"connector_2_to_3\"  networkTTL=\"5\" uri=\"static:(${Broker3OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/> \n     <networkConnector name=\"connector_2_to_1\"  networkTTL=\"5\"  uri=\"static:(${Broker1OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/>  </networkConnectors>     \n<destinationPolicy>\n    <policyMap>\n      <policyEntries>\n        <policyEntry topic=\">\">\n          <pendingMessageLimitStrategy>\n            <constantPendingMessageLimitStrategy limit=\"3000\"/>\n          </pendingMessageLimitStrategy>\n        </policyEntry>\n      </policyEntries>\n    </policyMap>\n  </destinationPolicy>\n  <plugins>\n  </plugins>\n</broker>\n",
+              {
+                "Broker3OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker3", "OpenWireEndpoints" ] }
+                  ]
+                },
+                "AmazonMqUsername": {
+                  "Ref": "AmazonMqUsername"
+                },
+                "Broker1OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker1", "OpenWireEndpoints" ] }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "Description": "mq configuration for broker 2 with network",
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "Name": "MQConfigNW2"
+      }
+    },
+
+    "MQConfig1New": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "DependsOn": [ "Broker1", "Broker2", "Broker3" ],
+      "Properties": {
+        "AuthenticationStrategy": "SIMPLE",
+        "Data": {
+          "Fn::Base64": {
+            "Fn::Sub": [
+              "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n <transportConnectors><transportConnector name=\"openwire\" updateClusterClients=\"true\" rebalanceClusterClients=\"true\" updateClusterClientsOnRemove=\"true\"/></transportConnectors>    \n<networkConnectors><networkConnector name=\"connector_1_to_3\" networkTTL=\"5\"  uri=\"static:(${Broker3OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/> \n     <networkConnector name=\"connector_1_to_2\"  networkTTL=\"5\" uri=\"static:(${Broker2OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/>  </networkConnectors>     \n<destinationPolicy>\n    <policyMap>\n      <policyEntries>\n        <policyEntry topic=\">\">\n          <pendingMessageLimitStrategy>\n            <constantPendingMessageLimitStrategy limit=\"3000\"/>\n          </pendingMessageLimitStrategy>\n        </policyEntry>\n      </policyEntries>\n    </policyMap>\n  </destinationPolicy>\n  <plugins>\n  </plugins>\n</broker>\n",
+              {
+                "Broker3OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker3", "OpenWireEndpoints" ] }
+                  ]
+                },
+                "AmazonMqUsername": {
+                  "Ref": "AmazonMqUsername"
+                },
+                "Broker2OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker2", "OpenWireEndpoints" ] }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "Description": "mq configuration for broker 1 with network",
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "Name": "MQConfigNW1"
+      }
+    },
+
+    "MQConfig3": {
+      "Type": "AWS::AmazonMQ::Configuration",
+      "DependsOn": [ "Broker1", "Broker2", "Broker3" ],
+      "Properties": {
+        "AuthenticationStrategy": "SIMPLE",
+        "Data": {
+          "Fn::Base64": {
+            "Fn::Sub": [
+              "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<broker xmlns=\"http://activemq.apache.org/schema/core\" start=\"false\">\n <transportConnectors><transportConnector name=\"openwire\" updateClusterClients=\"true\" rebalanceClusterClients=\"true\" updateClusterClientsOnRemove=\"true\"/></transportConnectors>    \n<networkConnectors><networkConnector name=\"connector_1_to_1\" networkTTL=\"5\"  uri=\"static:(${Broker1OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/> \n     <networkConnector name=\"connector_1_to_2\"  networkTTL=\"5\"  uri=\"static:(${Broker2OpenWireEndpoint})\" userName=\"${AmazonMqUsername}\"/>  </networkConnectors>     \n<destinationPolicy>\n    <policyMap>\n      <policyEntries>\n        <policyEntry topic=\">\">\n          <pendingMessageLimitStrategy>\n            <constantPendingMessageLimitStrategy limit=\"3000\"/>\n          </pendingMessageLimitStrategy>\n        </policyEntry>\n      </policyEntries>\n    </policyMap>\n  </destinationPolicy>\n  <plugins>\n  </plugins>\n</broker>\n",
+              {
+                "Broker1OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker1", "OpenWireEndpoints" ] }
+                  ]
+                },
+                "AmazonMqUsername": {
+                  "Ref": "AmazonMqUsername"
+                },
+                "Broker2OpenWireEndpoint": {
+                  "Fn::Select": [
+                    0,
+                    { "Fn::GetAtt": [ "Broker2", "OpenWireEndpoints" ] }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "Description": "mq configuration for Broker 3 with network",
+        "EngineType": "ACTIVEMQ",
+        "EngineVersion": "5.15.14",
+        "Name": "MQConfigNW3"
+      }
+    },
+
+
+    "ConfigurationAssociation1": {
+      "Type": "AWS::AmazonMQ::ConfigurationAssociation",
+      "DependsOn": "Broker1",
+
+      "Properties": {
+        "Broker": {
+          "Ref": "Broker1"
+        },
+        "Configuration": {
+          "Id": {
+            "Ref": "MQConfig1New"
+          },
+          "Revision": {
+            "Fn::GetAtt": [
+              "MQConfig1New",
+              "Revision"
+            ]
+          }
+        }
+      }
+    },
+
+    "ConfigurationAssociation2": {
+      "Type": "AWS::AmazonMQ::ConfigurationAssociation",
+      "DependsOn": "Broker2",
+      "Properties": {
+        "Broker": {
+          "Ref": "Broker2"
+        },
+        "Configuration": {
+          "Id": {
+            "Ref": "MQConfig2"
+          },
+          "Revision": {
+            "Fn::GetAtt": [
+              "MQConfig2",
+              "Revision"
+            ]
+          }
+        }
+      }
+    },
+
+    "ConfigurationAssociation3": {
+      "Type": "AWS::AmazonMQ::ConfigurationAssociation",
+      "DependsOn": "Broker3",
+      "Properties": {
+        "Broker": {
+          "Ref": "Broker3"
+        },
+        "Configuration": {
+          "Id": {
+            "Ref": "MQConfig3"
+          },
+          "Revision": {
+            "Fn::GetAtt": [
+              "MQConfig3",
+              "Revision"
+            ]
+          }
+        }
+      }
+    },
+
+    
+
+    "SSMParameterMQName": {
+      "Type": "AWS::SSM::Parameter",
+      "Properties": {
+        "Description": "Broker username",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": { "Ref": "AmazonMqUsername" },
+        "Name": "MQ-Username"
+      }
+    },
+
+    "SSMParameterMQPassword": {
+      "Type": "AWS::SSM::Parameter",
+      "Properties": {
+        "Description": "Broker User password",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": { "Ref": "AmazonMqPassword" },
+        "Name": "MQ-Password"
+      }
+    },
+    "SSMParameterMQ1Uri": {
+      "Type": "AWS::SSM::Parameter",
+      "DependsOn": "Broker1",
+      "Properties": {
+        "Description": "Broker2 URI",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": {
+          "Fn::Select": [
+            0,
+            { "Fn::GetAtt": [ "Broker1", "OpenWireEndpoints" ] }
+          ]
+        },
+        "Name": "MQ-Broker1URI"
+      }
+    },
+
+
+    "SSMParameterMQ2Uri": {
+      "Type": "AWS::SSM::Parameter",
+      "DependsOn": "Broker2",
+      "Properties": {
+        "Description": "Broker2 URI",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": {
+          "Fn::Select": [
+            0,
+            { "Fn::GetAtt": [ "Broker2", "OpenWireEndpoints" ] }
+          ]
+        },
+        "Name": "MQ-Broker2URI"
+      }
+    },
+    "SSMParameterMQ3Uri": {
+      "Type": "AWS::SSM::Parameter",
+      "DependsOn": "Broker3",
+      "Properties": {
+        "Description": "Broker 3 URI",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": {
+          "Fn::Select": [
+            0,
+            { "Fn::GetAtt": [ "Broker3", "OpenWireEndpoints" ] }
+          ]
+        },
+        "Name": "MQ-Broker3URI"
+      }
+    },
+
+    "QueueName": {
+      "Type": "AWS::SSM::Parameter",
+      "DependsOn": "Broker3",
+      "Properties": {
+        "Description": "Queue Name",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": "TestQ",
+
+        "Name": "MQ-QueueName"
+      }
+    },
+
+
+
+    "MQLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+
+          "S3Bucket": { "Ref": "LambdaCodeS3Bucket" },
+          "S3Key": { "Ref": "LambdaCodeS3Key" }
+        },
+
+        "Description": "Lambda to send/receive message from queue",
+
+
+        "FunctionName": { "Ref": "LambdaName" },
+        "Handler": { "Ref": "LambdaHandler" },
+
+
+        "MemorySize": "512",
+        "PackageType": "Zip",
+
+        "Role": { "Ref":  "LambdaExecutionRoleArn"  },
+        "Runtime": { "Ref": "LambdaCodeRuntime" },
+
+        "Timeout": "20",
+
+        "VpcConfig": {
+          "SecurityGroupIds": [ { "Ref": "SecGrp1" } ],
+
+          "SubnetIds": [
+            { "Ref": "MQSampleSubnet1" },
+            { "Ref": "MQSampleSubnet2" }
+          ]
+
+        }
+      }
+    },
+
+
+    "SSMEndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "VpcEndpointType": "Interface",
+        "SubnetIds": [
+          { "Ref": "MQSampleSubnet1" },
+          { "Ref": "MQSampleSubnet2" }
+        ],
+        "SecurityGroupIds": [ { "Ref": "SecGrp1" } ],
+        "ServiceName": { "Fn::Sub": "com.amazonaws.${AWS::Region}.ssm" },
+        "PrivateDnsEnabled": true,
+        "VpcId": { "Ref": "MQSampleVPC" }
+
+      }
+    }
+
+  },
+
+
+  "Outputs": {
+    "SSMParameterMQ3Uri": {
+      "Description": "The MQ Broker 3 URI",
+      "Value": {
+        "Fn::Select": [
+          0,
+          { "Fn::GetAtt": [ "Broker3", "OpenWireEndpoints" ] }
+        ]
+      }
+
+    },
+    "SSMParameterMQ2Uri": {
+      "Description": "The MQ Broker 2 URI",
+      "Value": {
+        "Fn::Select": [
+          0,
+          { "Fn::GetAtt": [ "Broker2", "OpenWireEndpoints" ] }
+        ]
+      }
+
+    },
+    "SSMParameterMQ1Uri": {
+      "Description": "The MQ Broker 1 URI",
+      "Value": {
+        "Fn::Select": [
+          0,
+          { "Fn::GetAtt": [ "Broker1", "OpenWireEndpoints" ] }
+        ]
+      }
+    }
+
+  }
+}
