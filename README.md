@@ -22,9 +22,10 @@
     aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AWSLambda_FullAccess --role-name $rolename
 
     aws iam create-policy --policy-name my-policy --policy-document file://perm.json
+    ***Copy the policy ARN and replace the same in the command below***
 
-    aws iam attach-role-policy --policy-arn arn:aws:iam::033466939092:policy/my-policy --role-name $rolename
-
+    aws iam attach-role-policy --policy-arn arn:aws:iam::<AWS_Account_Number>:policy/my-policy --role-name $rolename
+    
 + Step 2: Create the Network of Brokers, in the first region of your choice.
   + Log in to the AWS console.  
   + Select the CloudFormation Service and choose Create stack.
