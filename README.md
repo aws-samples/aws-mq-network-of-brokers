@@ -1,4 +1,4 @@
-# AmazonMQNoB
+# Amazon MQ NoB
 
 ## Getting started
 
