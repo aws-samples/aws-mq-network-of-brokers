@@ -104,4 +104,4 @@
 ## Clean up
 
 + Clean up resources created by the CloudFormation template by clicking on Delete stack on the CloudFormation console, in both the regions. 
-+  In S3 buckets in the two regions, delete the mqProducer.jar and mqConsumer.zip files. image
++  In the S3 buckets in the two regions, delete the mqProducer.jar and mqConsumer.zip files. image
