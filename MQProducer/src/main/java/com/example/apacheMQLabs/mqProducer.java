@@ -78,7 +78,7 @@ public class mqProducer implements RequestHandler<Object, Object> {
     	SsmClient client = SsmClient.builder().region(currentRegion).build();
 
     	try {
-    		//Get param values
+    		//Get param values 
     		GetParameterRequest parameterRequest = GetParameterRequest.builder().name(key).build();
     		GetParameterResponse parameterResponse = client.getParameter(parameterRequest);
     		return parameterResponse.parameter().value();
