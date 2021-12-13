@@ -51,7 +51,8 @@ namespace MQLambda
                     IMessage msg =  consumer.Receive(TimeSpan.FromSeconds(1));
                     if (msg != null)
                     {
-                        string result =  "\n Message Received : " + msg.ToString();
+                        ITextMessage textMessage = msg as ITextMessage;
+                        string result =  "\n Message Received : " + textMessage.Text.ToString();
                         LambdaLogger.Log(result);
 
                         return result;
